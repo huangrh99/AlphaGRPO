@@ -9,6 +9,7 @@
 [![Project Page](https://img.shields.io/badge/SpectraReward-Page-blue)](https://huangrh99.github.io/SpectraReward/)
 [![Models](https://img.shields.io/badge/%F0%9F%A4%97-AlphaGRPO_Models-blue.svg)](https://huggingface.co/collections/huangrh9/alphagrpo)
 [![Models](https://img.shields.io/badge/%F0%9F%A4%97-SpectraReward_Models-blue.svg)](https://huggingface.co/collections/huangrh9/spectrareward)
+[![Papers with Code: #2 on WISE](https://paperswithcode.co/api/v1/papers/2607.11886/leaderboard-badge.svg?eval=14485&live=1)](https://paperswithcode.co/benchmark/wise?task=image-understanding&eval=14485)
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 </div>
 
