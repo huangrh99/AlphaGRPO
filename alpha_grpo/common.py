@@ -47,6 +47,7 @@ class GenerationStep:
     image_log_probs: Optional[Any] = None   # (B, T)
     sde_window: Optional[tuple] = None      # (start, end)
     task_type: Optional[str] = None         # 't2i' | 'edit'
+    image_shape: Optional[tuple] = None     # actual rollout shape as (height, width)
 
     # ---- ref model data (set by compute_kl) ----
     ref_text_per_token_log_probs: Optional[Any] = None

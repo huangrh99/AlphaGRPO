@@ -1174,6 +1174,8 @@ def think_tag_format_score():
 
 
 def multi_score(device, score_dict):
+    from rewards.univr import univr_vrgrpo, univr_vrgrpo_validation
+
     score_functions = {
         "deqa": deqa_score_remote,
         "ocr": ocr_score,
@@ -1197,45 +1199,64 @@ def multi_score(device, score_dict):
         "dvreward_binary": decompositional_verifiable_reward_binary,
         "reflective_think_format": reflective_think_format_score,
         "think_tag_format": think_tag_format_score,
+        "univr_vrgrpo": univr_vrgrpo,
+        "univr_vrgrpo_validation": univr_vrgrpo_validation,
     }
-    score_fns={}
-    for score_name, weight in score_dict.items():
-        score_fns[score_name] = score_functions[score_name](device) if 'device' in score_functions[score_name].__code__.co_varnames else score_functions[score_name]()
+    score_fns = {}
+    score_weights = {}
+    for score_name, spec in score_dict.items():
+        if hasattr(spec, "items"):
+            weight = float(spec.get("weight", 1.0))
+            kwargs = dict(spec.get("kwargs", {}))
+        else:
+            weight = float(spec)
+            kwargs = {}
+        factory = score_functions[score_name]
+        if "device" in factory.__code__.co_varnames:
+            score_fns[score_name] = factory(device=device, **kwargs)
+        else:
+            score_fns[score_name] = factory(**kwargs)
+        score_weights[score_name] = weight
 
-    # only_strict is only for geneval. During training, only the strict reward is needed, and non-strict rewards don't need to be computed, reducing reward calculation time.
+    # only_strict is only for geneval. During training, only the strict reward is needed.
     def _fn(input_data, only_strict=True):
         total_scores = []
         score_metas = {}
         score_details = {}
-        
-        for score_name, weight in score_dict.items():
+
+        for score_name in score_dict:
+            weight = score_weights[score_name]
             if score_name == "geneval":
-                scores, rewards, strict_rewards, group_rewards, group_strict_rewards = score_fns[score_name](**input_data, only_strict=only_strict)
-                score_details['accuracy'] = rewards
-                score_details['strict_accuracy'] = strict_rewards
+                scores, rewards, strict_rewards, group_rewards, group_strict_rewards = score_fns[score_name](
+                    **input_data, only_strict=only_strict)
+                score_details["accuracy"] = rewards
+                score_details["strict_accuracy"] = strict_rewards
                 for key, value in group_strict_rewards.items():
-                    score_details[f'{key}_strict_accuracy'] = value
+                    score_details[f"{key}_strict_accuracy"] = value
                 for key, value in group_rewards.items():
-                    score_details[f'{key}_accuracy'] = value
-            elif score_name == "image_similarity":
-                scores, rewards = score_fns[score_name](**input_data)
+                    score_details[f"{key}_accuracy"] = value
             else:
                 scores, rewards = score_fns[score_name](**input_data)
+
             score_details[score_name] = scores
             weighted_scores = [weight * score for score in scores]
-            
             if not total_scores:
                 total_scores = weighted_scores
             else:
                 total_scores = [total + weighted for total, weighted in zip(total_scores, weighted_scores)]
 
-            if len(rewards) and isinstance(rewards, list):
+            if isinstance(rewards, dict):
+                for key, value in rewards.items():
+                    if key == "_metadata":
+                        score_metas.update(value)
+                    else:
+                        score_details[key] = value
+            elif isinstance(rewards, list) and rewards:
                 for reward in rewards:
-                    for k, v in reward.items():
-                        if k not in score_metas:
-                            score_metas[k] = []
-                        score_metas[k].append(v)
-        score_details['avg'] = total_scores
+                    for key, value in reward.items():
+                        score_metas.setdefault(key, []).append(value)
+
+        score_details["avg"] = total_scores
         return score_details, score_metas
 
     return _fn

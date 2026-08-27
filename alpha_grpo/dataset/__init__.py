@@ -10,6 +10,8 @@ from typing import Tuple
 import torch
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, BatchSampler
+from .vrx import VRXDataset
+from .vrx_sampler import DistributedLocalKRepeatBatchSampler
 
 
 class TextPromptDataset(Dataset):
@@ -296,21 +298,31 @@ DATASET_MAP = {
     "geneval": (GenevalPromptDataset, {}),
     "image_text": (ImageTextDataset, {"image_root": True}),
     "dvreward": (TextPromptWithQuestionDataset, {}),
+    "vrx": (VRXDataset, {}),
 }
 
 
-def _build_single_dataset(prompt_fn, dataset_path, image_root=None, split='train'):
+def _build_single_dataset(prompt_fn, dataset_path, image_root=None, split='train', dataset_kwargs=None):
     """Instantiate one dataset from a prompt_fn key."""
     if prompt_fn not in DATASET_MAP:
         raise NotImplementedError(
             f"Unsupported prompt_fn: {prompt_fn}. Available: {list(DATASET_MAP.keys())}"
         )
     dataset_cls, required_opts = DATASET_MAP[prompt_fn]
+    required_opts = dict(required_opts)
     if required_opts.get("image_root"):
         assert image_root is not None
         required_opts.update({"image_root": image_root})
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    return dataset_cls(os.path.join(base_dir, dataset_path), split=split, **required_opts), dataset_cls
+    dataset_kwargs = dict(dataset_kwargs or {})
+    if prompt_fn == "vrx":
+        fallback_path = dataset_path
+        if fallback_path and not os.path.isabs(fallback_path):
+            fallback_path = os.path.join(base_dir, fallback_path)
+        return dataset_cls(fallback_path, split=split, **dataset_kwargs), dataset_cls
+    return dataset_cls(
+        os.path.join(base_dir, dataset_path), split=split, **required_opts, **dataset_kwargs
+    ), dataset_cls
 
 
 # ====== Public Interface ======
@@ -331,21 +343,44 @@ def _build_single_dataloader(config, accelerator):
     prompt_fn = config.prompt_fn
     dataset_cls = DATASET_MAP[prompt_fn][0]
 
+    train_kwargs = {}
+    test_kwargs = {}
+    if prompt_fn == "vrx":
+        vrx = config.vrx
+        train_kwargs = {
+            "sources": getattr(vrx, "train_sources", None),
+            "max_samples_per_source": getattr(vrx, "max_samples_per_source", None),
+            "image_size": getattr(vrx, "image_size", None),
+            "required_gt_frames": getattr(vrx, "required_gt_frames", None),
+            "seed": config.seed,
+        }
+        test_kwargs = {
+            "sources": getattr(vrx, "val_sources", None) or getattr(vrx, "train_sources", None),
+            "max_samples_per_source": getattr(vrx, "max_val_samples_per_source", None),
+            "image_size": getattr(vrx, "image_size", None),
+            "required_gt_frames": getattr(vrx, "required_gt_frames", None),
+            "seed": config.seed,
+        }
     train_dataset, dataset_cls = _build_single_dataset(
-        prompt_fn, config.dataset, getattr(config, 'image_root', None), 'train')
+        prompt_fn, config.dataset, getattr(config, 'image_root', None), 'train', train_kwargs)
     test_dataset, _ = _build_single_dataset(
-        prompt_fn, config.dataset, getattr(config, 'image_root', None), 'test')
+        prompt_fn, config.dataset, getattr(config, 'image_root', None), 'test', test_kwargs)
 
-    train_sampler = DistributedKRepeatBatchSampler(
+    sampler_cls = (
+        DistributedLocalKRepeatBatchSampler
+        if prompt_fn == "vrx"
+        else DistributedKRepeatBatchSampler
+    )
+    train_sampler = sampler_cls(
         dataset=train_dataset,
         batch_size=config.sample.train_batch_size,
         k=config.sample.num_image_per_prompt,
         num_replicas=accelerator.num_processes,
         rank=accelerator.process_index,
-        seed=42
+        seed=config.seed
     )
 
-    num_workers_train = 4
+    num_workers_train = config.train.dataloader_num_workers
     
     train_dataloader = DataLoader(
         train_dataset,
@@ -360,7 +395,7 @@ def _build_single_dataloader(config, accelerator):
         batch_size=config.sample.test_batch_size,
         collate_fn=dataset_cls.collate_fn,
         shuffle=False,
-        num_workers=8,
+        num_workers=config.train.dataloader_num_workers,
     )
 
     return train_dataloader, test_dataloader

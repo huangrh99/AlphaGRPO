@@ -167,6 +167,7 @@ def compute_image_logprob(inferencer, model, gen_step, timestep_index, config, d
     Compute log probability of a transition for the Bagel model.
     gen_step: GenerationStep with latents/next_latents data.
     """
+    image_shape = gen_step.image_shape or (config.resolution, config.resolution)
     if algorithm in ('awm', 'nft'):
         clean_latents = gen_step.next_latents[:, -1]  # the final clean latents
 
@@ -183,7 +184,7 @@ def compute_image_logprob(inferencer, model, gen_step, timestep_index, config, d
         image_log_probs, prev_latents_mean, std_dev_t, model_output = inferencer.compute_image_logprob_fm(
             clean_latents, timestep_index,
             gen_context=gen_context,
-            image_shape=(config.resolution, config.resolution),
+            image_shape=image_shape,
             num_timesteps=config.sample.num_steps,
             timestep_shift=config.sample.timestep_shift,
             model=model,
@@ -202,7 +203,7 @@ def compute_image_logprob(inferencer, model, gen_step, timestep_index, config, d
         image_log_probs, prev_latents_mean, std_dev_t, model_output = inferencer.compute_image_logprob(
             latents, next_latents, timestep_index,
             gen_context=gen_context, cfg_text_context=cfg_text_context, cfg_img_context=cfg_img_context,
-            image_shape=(config.resolution, config.resolution),
+            image_shape=image_shape,
             num_timesteps=config.sample.num_steps,
             timestep_shift=config.sample.timestep_shift,
             cfg_text_scale=config.sample.cfg_text_scale,
@@ -378,7 +379,10 @@ def main(_):
 
     logger.info(f"\n{config}")
 
-    torch.cuda.set_device(accelerator.device)
+    cuda_device = accelerator.device
+    if cuda_device.type == "cuda" and cuda_device.index is None:
+        cuda_device = torch.device("cuda", torch.cuda.current_device())
+    torch.cuda.set_device(cuda_device)
     # set seed (device_specific is very important to get different prompts on different devices)
     set_seed(config.seed + accelerator.process_index, device_specific=True)
 
@@ -547,6 +551,9 @@ def main(_):
 
     # prepare prompt and reward fn
     reward_fn = multi_score(accelerator.device, config.reward_fn) if config.reward_fn else None
+    val_reward_fn = multi_score(
+        accelerator.device, getattr(config, "val_reward_fn", {})
+    ) if getattr(config, "val_reward_fn", None) else None
     text_reward_fn = multi_score(accelerator.device, config.text_reward_fn) if getattr(config, 'text_reward_fn', None) else None
 
     train_dataloader, test_dataloader = build_dataloader(config, accelerator)
@@ -565,7 +572,9 @@ def main(_):
     # initialize stat tracker
     stat_tracker = None
     if config.per_prompt_stat_tracking:
-        stat_tracker = PerPromptStatTracker(config.sample.global_std)
+        stat_tracker = PerPromptStatTracker(
+            config.sample.global_std, ddof=getattr(config.train, "advantage_std_ddof", 0)
+        )
 
     # for some reason, autocast is necessary for non-lora training but for lora training it isn't necessary and it uses more memory
     autocast = contextlib.nullcontext if config.use_lora else accelerator.autocast
@@ -592,6 +601,7 @@ def main(_):
         executor=executor,
         reward_fn=reward_fn,
         text_reward_fn=text_reward_fn,
+        val_reward_fn=val_reward_fn,
     )
     text_algo = algorithms.get_algorithm(config.train.algorithm)
     image_algo = algorithms.get_algorithm(config.train.image_algorithm)

@@ -123,11 +123,12 @@ class GRPOAlgorithm(BaseAlgorithm):
             image_ratio = torch.exp(image_log_probs - old_image_lp_j.detach())
         else:
             image_ratio = torch.exp(image_log_probs - image_log_probs.detach())
-        image_ratio = image_ratio.to('cuda')
+        image_ratio = image_ratio.to(accelerator.device)
 
         image_unclipped_loss = -advantages * image_ratio
         image_clipped_loss = -advantages * torch.clamp(
-            image_ratio, 1.0 - config.train.image_clip_range, 1.0 + config.train.image_clip_range
+            image_ratio, 1.0 - config.train.image_clip_range,
+            1.0 + getattr(config.train, "image_clip_range_high", config.train.image_clip_range)
         )
         image_policy_loss = torch.maximum(image_unclipped_loss, image_clipped_loss)
 
@@ -152,13 +153,25 @@ class GRPOAlgorithm(BaseAlgorithm):
         info["image_approx_kl"].append(
             0.5 * torch.mean((image_log_probs.detach() - old_image_lp_j) ** 2)
         )
-        info["image_clipfrac"].append(
-            torch.mean((torch.abs(image_ratio - 1.0) > config.train.image_clip_range).float())
+        image_clip_high = getattr(
+            config.train, "image_clip_range_high", config.train.image_clip_range
         )
+        info["image_clipfrac"].append(torch.mean((
+            (image_ratio < 1.0 - config.train.image_clip_range)
+            | (image_ratio > 1.0 + image_clip_high)
+        ).float()))
         info["image_policy_loss"].append(image_policy_loss.detach())
         info["image_ratio"].append(image_ratio.mean().detach())
 
         if config.train.image_beta > 0:
             info["image_kl_loss"].append(image_kl_loss.detach())
+            ref_kl_metric = image_kl_loss.detach()
+        else:
+            ref_kl_metric = torch.zeros_like(image_policy_loss.detach())
+        info["train/image_ref_kl"].append(ref_kl_metric)
 
+        info["train/image_policy_loss"].append(image_policy_loss.detach())
+        info["train/image_ratio"].append(image_ratio.mean().detach())
+        info["train/image_clipfrac"].append(info["image_clipfrac"][-1])
+        info["train/image_approx_kl"].append(info["image_approx_kl"][-1])
         return info, step_loss

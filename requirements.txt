@@ -9,7 +9,9 @@ bitsandbytes
 transformers==4.57.1
 accelerate==1.11.0
 pillow
+pyarrow
 requests
+wandb
 flask
 openai
 sglang[all]==0.5.5.post3

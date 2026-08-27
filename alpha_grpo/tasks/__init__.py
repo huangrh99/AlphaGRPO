@@ -101,12 +101,13 @@ class BagelBaseTask(BaseTask):
     """
 
     def __init__(self, inferencer, accelerator, executor,
-                 reward_fn=None, text_reward_fn=None):
+                 reward_fn=None, text_reward_fn=None, val_reward_fn=None):
         self.inferencer = inferencer
         self.accelerator = accelerator
         self.executor = executor
         self.reward_fn = reward_fn
         self.text_reward_fn = text_reward_fn
+        self.val_reward_fn = val_reward_fn
 
     def _init_kwargs(self):
         """Return kwargs dict for constructing sibling task instances."""
@@ -116,6 +117,7 @@ class BagelBaseTask(BaseTask):
             executor=self.executor,
             reward_fn=self.reward_fn,
             text_reward_fn=self.text_reward_fn,
+            val_reward_fn=self.val_reward_fn,
         )
 
     def generate_image(self, input_lists, config, think=False,
@@ -235,4 +237,4 @@ class BagelBaseTask(BaseTask):
 # Need torch for compute_rewards
 import torch
 
-from . import t2i, ti2t, reflect, mixed, self_spectrareward_t2i
+from . import t2i, ti2t, reflect, mixed, self_spectrareward_t2i, vrx

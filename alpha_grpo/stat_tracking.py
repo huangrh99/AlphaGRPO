@@ -5,8 +5,9 @@ import numpy as np
 import torch
 
 class PerPromptStatTracker:
-    def __init__(self, global_std=False):
+    def __init__(self, global_std=False, ddof=0):
         self.global_std = global_std
+        self.ddof = int(ddof)
         self.stats = {}
         self.history_prompts = set()
 
@@ -31,9 +32,9 @@ class PerPromptStatTracker:
                 mean = np.mean(self.stats[prompt], axis=0, keepdims=True)
 
             if self.global_std:
-                std = np.std(rewards, axis=0, keepdims=True) + 1e-4  # Use global std of all rewards
+                std = np.std(rewards, axis=0, keepdims=True, ddof=self.ddof if len(rewards) > self.ddof else 0) + 1e-4  # Use global std of all rewards
             else:
-                std = np.std(self.stats[prompt], axis=0, keepdims=True) + 1e-4
+                std = np.std(self.stats[prompt], axis=0, keepdims=True, ddof=self.ddof if len(self.stats[prompt]) > self.ddof else 0) + 1e-4
             if type=='grpo':
                 advantages[prompts == prompt] = (prompt_rewards - mean) / std
             elif type=='rwr':
