@@ -13,9 +13,12 @@
 [![License](https://img.shields.io/badge/License-Apache_2.0-green.svg)](LICENSE)
 </div>
 
-This is the official repo for **AlphaGRPO: Self-Reflective Multimodal Generation via Decompositional Verifiable Reward**.
+This is the official repo for ***AlphaGRPO: Self-Reflective Multimodal Generation via Decompositional Verifiable Reward***. and **SpectraReward** from
+***Read It Back: Pretrained MLLMs Are Zero-Shot Reward Models for Text-to-Image Generation*** 
 
-**TL;DR:** AlphaGRPO enables multimodal generation RL training across text and image generation for AR-Diffusion-native unified multimodal models, such as [BAGEL](https://github.com/bytedance-seed/BAGEL). It supports training on reasoning text-to-image generation and self-reflective refinement.
+**TL;DR:** **AlphaGRPO** enables multimodal generation RL training across text and image generation for AR-Diffusion-native unified multimodal models, such as [BAGEL](https://github.com/bytedance-seed/BAGEL). It supports training on reasoning text-to-image generation and self-reflective refinement. **SpectraReward** complements it by turning a frozen pretrained MLLM into a training-free reward model for text-to-image RL, measuring how well the original prompt can be "read back" from the generated image without any reward-specific training data.
+
+
 
 This codebase flexibly supports different RL methods for image and text generation: **FlowGRPO**, **DiffusionNFT**, and **AWM** for images; **GRPO** for text.
 
@@ -25,6 +28,7 @@ This codebase flexibly supports different RL methods for image and text generati
 
 ## 📣 News
 
+- **[2026/09/26]** **SpectraReward** has been accepted to **NeurIPS 2026** as a **Spotlight✨**!
 - **[2026/07/14]** We release **SpectraReward**, *[Read It Back: Pretrained MLLMs Are Zero-Shot Reward Models for Text-to-Image Generation](https://arxiv.org/abs/2607.11886)*. SpectraReward turns a frozen pretrained MLLM into a training-free, off-the-shelf reward model for text-to-image RL by measuring how well the prompt can be "read back" from the generated image. Code and configs are in this repo; see the [SpectraReward](#spectrareward) section and [`docs/SPECTRAREWARD.md`](docs/SPECTRAREWARD.md).
 - **[2026/06/12]** We release **AlphaGRPO**, an RL framework for multimodal generation training on [BAGEL](https://github.com/bytedance-seed/BAGEL). Supporting tasks include reasoning text-to-image generation and self-reflective refinement.
 - **[2026/05/13]** We released the paper, "AlphaGRPO: Self-Reflective Multimodal Generation via Decompositional Verifiable Reward" on [arXiv](https://arxiv.org/abs/2605.12495).

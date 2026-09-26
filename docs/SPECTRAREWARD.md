@@ -173,7 +173,7 @@ Across text-to-image backbones, RL algorithms, and reward MLLM families, Spectra
 
 > **Main results.** SpectraReward and Self-SpectraReward improve BAGEL across the reported benchmarks and resolutions. Bold values mark the best result in each comparison group.
 
-**Reward-policy alignment can rival scale.** Self-SpectraReward reaches the best GenEval at 89.5 and surpasses every external reward MLLM in this study, including Qwen3-VL-30B-A3B and the much larger Qwen3-VL-235B-A22B. Reward quality is not determined by scale alone.
+**Reward-policy alignment can rival scale.** In the BAGEL reward-model comparison, Self-SpectraReward reaches the best GenEval at 89.5 and surpasses every external reward MLLM evaluated, including Qwen3-VL-30B-A3B and the much larger Qwen3-VL-235B-A22B. Reward quality is not determined by scale alone.
 
 <p align="center">
   <img src="../assets/figures/png/spectrareward_reward_scale.png" width="140%" />
@@ -184,5 +184,30 @@ Across text-to-image backbones, RL algorithms, and reward MLLM families, Spectra
 **Bigger is non-monotonic; pretraining helps.** Within Qwen3-VL, going from 8B to 30B improves GenEval but 235B drops, so a roughly 30B MLLM already unlocks most of the benefit. Gemma3-12B pretrain also beats its instruct counterpart, since captioning-style pretraining matches SpectraReward's objective more closely.
 
 **Optimizer.** Holding the reward fixed to Self-SpectraReward, AWM is the most effective optimizer over FlowGRPO and DiffusionNFT, and Self-SpectraReward outperforms HPSv3, UnifiedReward, VIEScore, and DVReward under comparable training.
+
+### Z-Image and Qwen-Image
+
+RL post-training with SpectraReward improves Z-Image and Qwen-Image on all five evaluated benchmarks. Z-Image gains +9.05 on GenEval and +19.10 on GenEval2; Qwen-Image gains +10.16 / +11.21 on TIIF-Bench-Short / Long and +27.74 on GenEval2. All gains are absolute score differences.
+
+| Model | GenEval ↑ | TIIF-Bench-Short ↑ | TIIF-Bench-Long ↑ | DPG-Bench ↑ | GenEval2 ↑ |
+|---|---|---|---|---|---|
+| Z-Image | 81.94 | 86.61 | 86.03 | 86.54 | 30.59 |
+| Z-Image + SpectraReward | **90.99** | 92.30 | **93.10** | 88.85 | 49.69 |
+| Qwen-Image | 87.94 | 82.38 | 78.81 | 86.10 | 32.35 |
+| Qwen-Image + SpectraReward | 90.45 | **92.54** | 90.02 | **89.27** | **60.09** |
+
+Bold values mark the best score in each column across the four rows.
+
+### OmniGen2
+
+SpectraReward also improves OmniGen2, extending the evaluation to another unified model beyond BAGEL. External SpectraReward uses Qwen3-VL-30B-A3B as the reward model, while Self-SpectraReward uses OmniGen2's own understanding branch. The average across the four benchmarks rises from 79.70 to 83.72 with SpectraReward and to 84.85 with Self-SpectraReward, gains of +4.02 and +5.15, respectively. Self-SpectraReward achieves the higher average, while external SpectraReward scores higher on TIIF-Bench-Short and DPG-Bench.
+
+| Model | GenEval ↑ | TIIF-Bench-Short ↑ | TIIF-Bench-Long ↑ | DPG-Bench ↑ | Avg. ↑ |
+|---|---|---|---|---|---|
+| OmniGen2 | 81.22 | 77.35 | 77.42 | 82.82 | 79.70 |
+| OmniGen2 + SpectraReward | 87.65 | **82.16** | 77.87 | **87.21** | 83.72 |
+| OmniGen2 + Self-SpectraReward | **89.05** | 82.11 | **81.31** | 86.92 | **84.85** |
+
+Avg. is the unweighted mean of the four benchmark scores. Bold values mark the best score in each column.
 
 See the [project page](https://huangrh99.github.io/SpectraReward/) for the full tables, qualitative comparisons, and figures.
